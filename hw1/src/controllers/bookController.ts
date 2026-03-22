@@ -3,37 +3,41 @@ import { BookService } from "../services/bookService";
 
 const service = new BookService();
 
-export const listBooks = (req: Request, res: Response) => {
-  res.json(service.list());
-};
-
-export const getBook = (req: Request, res: Response, next: NextFunction) => {
+export const listBooks = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    res.json(service.get(req.params.id));
+    res.json(await service.list());
   } catch (error) {
     next(error);
   }
 };
 
-export const createBook = (req: Request, res: Response, next: NextFunction) => {
+export const getBook = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    res.status(201).json(service.create(req.body));
+    res.json(await service.get(req.params.id));
   } catch (error) {
     next(error);
   }
 };
 
-export const updateBook = (req: Request, res: Response, next: NextFunction) => {
+export const createBook = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    res.json(service.update(req.params.id, req.body));
+    res.status(201).json(await service.create(req.body));
   } catch (error) {
     next(error);
   }
 };
 
-export const deleteBook = (req: Request, res: Response, next: NextFunction) => {
+export const updateBook = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    service.delete(req.params.id);
+    res.json(await service.update(req.params.id, req.body));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteBook = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    await service.delete(req.params.id);
     res.status(204).send();
   } catch (error) {
     next(error);

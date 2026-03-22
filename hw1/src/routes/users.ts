@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { createUser, getUser, listUsers } from "../controllers/userController";
-import { validateBody } from "../middleware/validate";
-import { userCreateSchema } from "../schemas/userSchema";
+import { getMe, getUser, listUsers } from "../controllers/userController";
+import { authenticate } from "../middleware/authMiddleware";
+import { requireAdmin } from "../middleware/roleMiddleware";
 
 const router = Router();
 
-router.get("/", listUsers);
-router.post("/", validateBody(userCreateSchema), createUser);
-router.get("/:id", getUser);
+router.get("/me", authenticate, getMe);
+router.get("/", authenticate, requireAdmin, listUsers);
+router.get("/:id", authenticate, requireAdmin, getUser);
 
 export default router;

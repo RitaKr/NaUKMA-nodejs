@@ -1,7 +1,9 @@
+import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
 import booksRouter from "./routes/books";
 import usersRouter from "./routes/users";
 import loansRouter from "./routes/loans";
+import authRouter from "./routes/auth";
 import { HttpError } from "./services/errors";
 
 const app = express();
@@ -12,6 +14,7 @@ app.get("/health", (req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
+app.use("/auth", authRouter);
 app.use("/books", booksRouter);
 app.use("/users", usersRouter);
 app.use("/loans", loansRouter);
