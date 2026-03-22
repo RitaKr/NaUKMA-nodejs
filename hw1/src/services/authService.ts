@@ -18,7 +18,7 @@ const toSafeUser = (user: {
   name: string;
   email: string;
   role: string;
-  passwordHash: string;
+  passwordHash: string | null;
 }): SafeUser => ({
   id: user.id,
   name: user.name,
@@ -72,9 +72,16 @@ export class AuthService {
       throw new HttpError(401, "Invalid email or password");
     }
 
-    const valid = await bcrypt.compare(input.password, user.passwordHash);
+    const valid = user.passwordHash
+      ? await bcrypt.compare(input.password, user.passwordHash)
+      : false;
     if (!valid) {
-      throw new HttpError(401, "Invalid email or password");
+      throw new HttpError(
+        401,
+        user.passwordHash
+          ? "Invalid email or password"
+          : "This account uses OAuth login (Google)"
+      );
     }
 
     const payload: JwtPayload = {
@@ -93,5 +100,47 @@ export class AuthService {
     } catch {
       throw new HttpError(401, "Invalid or expired token");
     }
+  }
+
+  generateToken(user: SafeUser): { token: string; user: SafeUser } {
+    const payload: JwtPayload = {
+      userId: user.id,
+      email: user.email,
+      role: user.role
+    };
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
+    return { token, user };
+  }
+
+  async findOrCreateOAuthUser(input: {
+    email: string;
+    name: string;
+    oauthProvider: string;
+    oauthId: string;
+  }): Promise<SafeUser> {
+    //try find by provider + id first
+    let user = await prisma.user.findFirst({
+      where: { oauthProvider: input.oauthProvider, oauthId: input.oauthId }
+    });
+
+    //fall back to email (links existing account)
+    if (!user) {
+      user = await prisma.user.findUnique({ where: { email: input.email } });
+    }
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          name: input.name,
+          email: input.email,
+          passwordHash: null,
+          role: "USER",
+          oauthProvider: input.oauthProvider,
+          oauthId: input.oauthId
+        }
+      });
+    }
+
+    return toSafeUser(user);
   }
 }

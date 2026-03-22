@@ -32,12 +32,14 @@ model Book {
 }
 
 model User {
-  id           String  @id @default(uuid())
-  name         String
-  email        String  @unique
-  passwordHash String
-  role         Role    @default(USER)
-  loans        Loan[]
+  id            String  @id @default(uuid())
+  name          String
+  email         String  @unique
+  passwordHash  String?
+  role          Role    @default(USER)
+  oauthProvider String?
+  oauthId       String?
+  loans         Loan[]
 }
 
 model Loan {

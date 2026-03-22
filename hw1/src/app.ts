@@ -4,11 +4,13 @@ import booksRouter from "./routes/books";
 import usersRouter from "./routes/users";
 import loansRouter from "./routes/loans";
 import authRouter from "./routes/auth";
+import passport from "./config/passport";
 import { HttpError } from "./services/errors";
 
 const app = express();
 
 app.use(express.json());
+app.use(passport.initialize());
 
 app.get("/health", (req: Request, res: Response) => {
   res.json({ status: "ok" });
