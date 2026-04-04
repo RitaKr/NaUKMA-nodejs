@@ -1,78 +1,69 @@
-import { randomUUID } from "crypto";
-import { books, loans } from "../storage/memory";
-import { saveBooks } from "../storage/fileStore";
+import prisma from "../db/client";
 import { Book } from "../types/book";
 import { HttpError } from "./errors";
 
 export class BookService {
-  list(): Book[] {
-    return Array.from(books.values());
+  async list(): Promise<Book[]> {
+    return prisma.book.findMany();
   }
 
-  get(id: string): Book {
-    const book = books.get(id);
+  async get(id: string): Promise<Book> {
+    const book = await prisma.book.findUnique({ where: { id } });
     if (!book) {
       throw new HttpError(404, "Book not found");
     }
     return book;
   }
 
-  create(input: Omit<Book, "id">): Book {
-    const id = randomUUID();
+  async create(input: Omit<Book, "id">): Promise<Book> {
     const available = input.available ?? true;
 
-    const existingIsbn = Array.from(books.values()).find(
-      (book) => book.isbn === input.isbn
-    );
+    const existingIsbn = await prisma.book.findUnique({
+      where: { isbn: input.isbn }
+    });
     if (existingIsbn) {
       throw new HttpError(400, "ISBN already exists");
     }
 
-    const book: Book = {
-      id,
-      title: input.title,
-      author: input.author,
-      year: input.year,
-      isbn: input.isbn,
-      available
-    };
-    books.set(id, book);
-    saveBooks();
-    return book;
+    return prisma.book.create({
+      data: {
+        title: input.title,
+        author: input.author,
+        year: input.year,
+        isbn: input.isbn,
+        available
+      }
+    });
   }
 
-  update(id: string, input: Partial<Omit<Book, "id">>): Book {
-    const book = this.get(id);
+  async update(id: string, input: Partial<Omit<Book, "id">>): Promise<Book> {
+    const book = await this.get(id);
 
     if (input.isbn && input.isbn !== book.isbn) {
-      const existingIsbn = Array.from(books.values()).find(
-        (item) => item.isbn === input.isbn
-      );
+      const existingIsbn = await prisma.book.findUnique({
+        where: { isbn: input.isbn }
+      });
       if (existingIsbn) {
         throw new HttpError(400, "ISBN already exists");
       }
     }
 
-    const updated: Book = {
-      ...book,
-      ...input
-    };
-    books.set(id, updated);
-    saveBooks();
-    return updated;
+    return prisma.book.update({
+      where: { id },
+      data: input
+    });
   }
 
-  delete(id: string): void {
-    const book = this.get(id);
+  async delete(id: string): Promise<void> {
+    await this.get(id);
 
-    const hasActiveLoan = Array.from(loans.values()).some(
-      (loan) => loan.bookId === id && loan.status === "ACTIVE"
-    );
-    if (hasActiveLoan) {
+    const activeLoan = await prisma.loan.findFirst({
+      where: { bookId: id, status: "ACTIVE" }
+    });
+    if (activeLoan) {
       throw new HttpError(400, "Book has an active loan");
     }
 
-    books.delete(book.id);
-   saveBooks();
+    await prisma.book.delete({ where: { id } });
   }
 }

@@ -3,21 +3,26 @@ import { UserService } from "../services/userService";
 
 const service = new UserService();
 
-export const listUsers = (req: Request, res: Response) => {
-  res.json(service.list());
-};
-
-export const getUser = (req: Request, res: Response, next: NextFunction) => {
+export const listUsers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    res.json(service.get(req.params.id));
+    res.json(await service.list());
   } catch (error) {
     next(error);
   }
 };
 
-export const createUser = (req: Request, res: Response, next: NextFunction) => {
+export const getUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    res.status(201).json(service.create(req.body));
+    res.json(await service.get(req.params.id));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMe = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    res.json(await service.get(userId));
   } catch (error) {
     next(error);
   }

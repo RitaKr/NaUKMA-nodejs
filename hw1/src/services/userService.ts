@@ -1,38 +1,27 @@
-import { randomUUID } from "crypto";
-import { users } from "../storage/memory";
-import { saveUsers } from "../storage/fileStore";
+import prisma from "../db/client";
 import { HttpError } from "./errors";
-import { User } from "../types/user";
+import { SafeUser } from "../types/user";
+
+const selectSafeUser = {
+  id: true,
+  name: true,
+  email: true,
+  role: true
+} as const;
 
 export class UserService {
-  list(): User[] {
-    return Array.from(users.values());
+  async list(): Promise<SafeUser[]> {
+    return prisma.user.findMany({ select: selectSafeUser }) as Promise<SafeUser[]>;
   }
 
-  get(id: string): User {
-    const user = users.get(id);
+  async get(id: string): Promise<SafeUser> {
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: selectSafeUser
+    });
     if (!user) {
       throw new HttpError(404, "User not found");
     }
-    return user;
-  }
-
-  create(input: Omit<User, "id">): User {
-    const existingEmail = Array.from(users.values()).find(
-      (user) => user.email.toLowerCase() === input.email.toLowerCase()
-    );
-    if (existingEmail) {
-      throw new HttpError(400, "Email already exists");
-    }
-
-    const id = randomUUID();
-    const user: User = {
-      id,
-      name: input.name,
-      email: input.email
-    };
-    users.set(id, user);
-    saveUsers();
-    return user;
+    return user as SafeUser;
   }
 }
