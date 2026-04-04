@@ -1,12 +1,20 @@
+import fs from "fs";
+import path from "path";
+import crypto from "crypto";
+import sharp from "sharp";
 import prisma from "../db/client";
 import { HttpError } from "./errors";
 import { SafeUser } from "../types/user";
+
+const AVATAR_DIR = path.join(process.cwd(), "uploads", "avatars");
+const AVATAR_SIZE = 256; // px, square
 
 const selectSafeUser = {
   id: true,
   name: true,
   email: true,
-  role: true
+  role: true,
+  avatarUrl: true
 } as const;
 
 export class UserService {
@@ -23,5 +31,46 @@ export class UserService {
       throw new HttpError(404, "User not found");
     }
     return user as SafeUser;
+  }
+
+  async updateAvatar(userId: string, buffer: Buffer): Promise<SafeUser> {
+    const existing = await prisma.user.findUnique({ where: { id: userId } });
+    if (existing?.avatarUrl) {
+      const oldFile = path.join(process.cwd(), existing.avatarUrl);
+      if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+    }
+
+    //resize and convert to webp using sharp
+    const filename = `${crypto.randomUUID()}.webp`;
+    const dest = path.join(AVATAR_DIR, filename);
+    await sharp(buffer)
+      .resize(AVATAR_SIZE, AVATAR_SIZE, { fit: "cover", position: "centre" })
+      .webp({ quality: 85 })
+      .toFile(dest);
+
+    const avatarUrl = `/uploads/avatars/${filename}`;
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl },
+      select: selectSafeUser
+    });
+    return user as SafeUser;
+  }
+
+  async deleteAvatar(userId: string): Promise<void> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.avatarUrl) {
+      throw new HttpError(404, "No avatar to delete");
+    }
+
+    const filePath = path.join(process.cwd(), user.avatarUrl);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl: null }
+    });
   }
 }

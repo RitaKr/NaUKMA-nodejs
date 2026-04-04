@@ -27,3 +27,35 @@ export const getMe = async (req: Request, res: Response, next: NextFunction): Pr
     next(error);
   }
 };
+
+export const uploadAvatarHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ message: "No file uploaded" });
+      return;
+    }
+    const userId = req.user!.userId;
+    const user = await service.updateAvatar(userId, req.file.buffer);
+    res.json({ message: "Avatar updated successfully.", avatarUrl: user.avatarUrl });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteAvatarHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    await service.deleteAvatar(userId);
+    res.json({ message: "Avatar deleted successfully." });
+  } catch (error) {
+    next(error);
+  }
+};

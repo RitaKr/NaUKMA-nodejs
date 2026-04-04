@@ -1,7 +1,12 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { register, login } from "../controllers/authController";
+import { register, login, requestPasswordReset, resetPassword } from "../controllers/authController";
 import { validateBody } from "../middleware/validate";
-import { registerSchema, loginSchema } from "../schemas/authSchema";
+import {
+  registerSchema,
+  loginSchema,
+  requestPasswordResetSchema,
+  resetPasswordSchema
+} from "../schemas/authSchema";
 import passport from "../config/passport";
 import { AuthService } from "../services/authService";
 import { SafeUser } from "../types/user";
@@ -11,6 +16,8 @@ const authService = new AuthService();
 
 router.post("/register", validateBody(registerSchema), register);
 router.post("/login", validateBody(loginSchema), login);
+router.post("/request-password-reset", validateBody(requestPasswordResetSchema), requestPasswordReset);
+router.post("/reset-password", validateBody(resetPasswordSchema), resetPassword);
 
 //Google OAuth
 router.get(
