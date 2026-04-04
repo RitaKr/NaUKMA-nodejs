@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  /// "USER" | "ADMIN"
+  role         String    @default("USER")
+  createdAt    DateTime  @default(now())
+  bookings     Booking[]
+  events       Event[]   @relation("CreatedBy")
+}
+
+model Event {
+  id             String    @id @default(uuid())
+  title          String
+  description    String
+  date           DateTime
+  location       String
+  capacity       Int
+  availableSeats Int
+  category       String
+  price          Float
+  createdById    String
+  createdAt      DateTime  @default(now())
+  createdBy      User      @relation("CreatedBy", fields: [createdById], references: [id])
+  bookings       Booking[]
+}
+
+model Booking {
+  id          String    @id @default(uuid())
+  userId      String
+  eventId     String
+  quantity    Int
+  totalPrice  Float
+  /// "ACTIVE" | "CANCELLED"
+  status      String    @default("ACTIVE")
+  bookedAt    DateTime  @default(now())
+  cancelledAt DateTime?
+  user        User      @relation(fields: [userId], references: [id])
+  event       Event     @relation(fields: [eventId], references: [id])
+}
