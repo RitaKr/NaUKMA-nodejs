@@ -39,7 +39,7 @@ export const uploadAvatarHandler = async (
       return;
     }
     const userId = req.user!.userId;
-    const user = await service.updateAvatar(userId, req.file.path);
+    const user = await service.updateAvatar(userId, req.file.buffer);
     res.json({ message: "Avatar updated successfully.", avatarUrl: user.avatarUrl });
   } catch (error) {
     next(error);

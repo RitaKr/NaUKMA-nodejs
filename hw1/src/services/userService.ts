@@ -1,8 +1,13 @@
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
+import sharp from "sharp";
 import prisma from "../db/client";
 import { HttpError } from "./errors";
 import { SafeUser } from "../types/user";
+
+const AVATAR_DIR = path.join(process.cwd(), "uploads", "avatars");
+const AVATAR_SIZE = 256; // px, square
 
 const selectSafeUser = {
   id: true,
@@ -28,16 +33,22 @@ export class UserService {
     return user as SafeUser;
   }
 
-  async updateAvatar(userId: string, filePath: string): Promise<SafeUser> {
+  async updateAvatar(userId: string, buffer: Buffer): Promise<SafeUser> {
     const existing = await prisma.user.findUnique({ where: { id: userId } });
     if (existing?.avatarUrl) {
       const oldFile = path.join(process.cwd(), existing.avatarUrl);
-      if (fs.existsSync(oldFile)) {
-        fs.unlinkSync(oldFile);
-      }
+      if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
     }
 
-    const avatarUrl = `/uploads/avatars/${path.basename(filePath)}`;
+    //resize and convert to webp using sharp
+    const filename = `${crypto.randomUUID()}.webp`;
+    const dest = path.join(AVATAR_DIR, filename);
+    await sharp(buffer)
+      .resize(AVATAR_SIZE, AVATAR_SIZE, { fit: "cover", position: "centre" })
+      .webp({ quality: 85 })
+      .toFile(dest);
+
+    const avatarUrl = `/uploads/avatars/${filename}`;
     const user = await prisma.user.update({
       where: { id: userId },
       data: { avatarUrl },
