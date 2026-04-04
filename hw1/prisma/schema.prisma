@@ -32,13 +32,14 @@ model Book {
 }
 
 model User {
-  id            String  @id @default(uuid())
+  id            String   @id @default(uuid())
   name          String
-  email         String  @unique
+  email         String   @unique
   passwordHash  String?
-  role          Role    @default(USER)
+  role          Role     @default(USER)
   oauthProvider String?
   oauthId       String?
+  avatarUrl     String?
   loans         Loan[]
 }
 

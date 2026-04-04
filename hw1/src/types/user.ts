@@ -8,6 +8,7 @@ export type User = {
   role: UserRole;
   oauthProvider: string | null;
   oauthId: string | null;
+  avatarUrl?: string | null;
 }
 
 export type SafeUser = Omit<User, "passwordHash" | "oauthProvider" | "oauthId">;
