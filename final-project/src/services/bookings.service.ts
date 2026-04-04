@@ -1,9 +1,16 @@
 import { prisma } from "../db/client";
 import { HttpError } from "../utils/errors";
 import { CreateBookingInput } from "../schemas/booking.schema";
+import { sendMail, buildBookingConfirmationHtml } from "../utils/sendMail";
 
-export async function createBooking(data: CreateBookingInput, userId: string) {
-  const event = await prisma.event.findUnique({ where: { id: data.eventId } });
+export async function createBooking(
+  data: CreateBookingInput,
+  userId: string,
+  baseUrl: string
+) {
+  const event = await prisma.event.findFirst({
+    where: { id: data.eventId, deletedAt: null },
+  });
   if (!event) throw new HttpError(404, "Event not found");
 
   if (event.date <= new Date()) {
@@ -34,6 +41,29 @@ export async function createBooking(data: CreateBookingInput, userId: string) {
       data: { availableSeats: { decrement: data.quantity } },
     }),
   ]);
+
+  // Send email confirmation asynchronously (non-blocking)
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true, email: true },
+  });
+  if (user) {
+    const html = buildBookingConfirmationHtml({
+      userName: user.name,
+      bookingId: booking.id,
+      eventTitle: event.title,
+      eventDate: event.date,
+      eventLocation: event.location,
+      quantity: data.quantity,
+      totalPrice,
+      baseUrl,
+    });
+    sendMail({
+      to: user.email,
+      subject: `Booking Confirmed: ${event.title}`,
+      html,
+    }).catch((err) => console.error("Failed to send confirmation email:", err));
+  }
 
   return booking;
 }
@@ -117,4 +147,29 @@ export async function cancelBooking(id: string, userId: string, role: string) {
   ]);
 
   return { message: "Booking successfully cancelled." };
+}
+
+export async function getBookingForQR(id: string, userId: string, role: string) {
+  const booking = await prisma.booking.findUnique({
+    where: { id },
+    include: {
+      event: { select: { id: true, title: true } },
+    },
+  });
+
+  if (!booking) throw new HttpError(404, "Booking not found");
+
+  if (role !== "ADMIN" && booking.userId !== userId) {
+    throw new HttpError(403, "Forbidden: you can only access your own booking QR");
+  }
+
+  return {
+    bookingId: booking.id,
+    eventId: booking.eventId,
+    eventTitle: booking.event.title,
+    userId: booking.userId,
+    quantity: booking.quantity,
+    status: booking.status,
+    bookedAt: booking.bookedAt.toISOString(),
+  };
 }

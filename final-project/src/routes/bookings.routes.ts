@@ -1,9 +1,10 @@
 import { Router } from "express";
 import {
-  createBooking,
-  getBookings,
-  getBookingById,
-  cancelBooking,
+    createBooking,
+    getBookings,
+    getBookingById,
+    cancelBooking,
+    getBookingQR,
 } from "../controllers/bookings.controller";
 import { authenticate } from "../middleware/auth.middleware";
 import { validate } from "../middleware/validate";
@@ -19,6 +20,9 @@ router.get("/", authenticate, getBookings);
 
 // GET /bookings/:id - authenticated
 router.get("/:id", authenticate, getBookingById);
+
+// GET /bookings/:id/qr - authenticated, returns QR code PNG
+router.get("/:id/qr", authenticate, getBookingQR);
 
 // POST /bookings/:id/cancel - authenticated
 router.post("/:id/cancel", authenticate, cancelBooking);

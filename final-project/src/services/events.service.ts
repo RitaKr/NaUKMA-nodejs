@@ -1,3 +1,5 @@
+import path from "path";
+import fs from "fs";
 import { prisma } from "../db/client";
 import { HttpError } from "../utils/errors";
 import {
@@ -16,6 +18,7 @@ const eventSelect = {
   availableSeats: true,
   category: true,
   price: true,
+  imageUrl: true,
   createdById: true,
   createdAt: true,
 } as const;
@@ -24,7 +27,7 @@ export async function getEvents(query: EventQueryInput) {
   const { category, location, date, minPrice, maxPrice, sortBy, order, page, limit } =
     query;
 
-  const andConditions: object[] = [];
+  const andConditions: object[] = [{ deletedAt: null }];
 
   if (category) andConditions.push({ category: { contains: category } });
   if (location) andConditions.push({ location: { contains: location } });
@@ -40,7 +43,7 @@ export async function getEvents(query: EventQueryInput) {
   if (minPrice !== undefined) andConditions.push({ price: { gte: minPrice } });
   if (maxPrice !== undefined) andConditions.push({ price: { lte: maxPrice } });
 
-  const where = andConditions.length > 0 ? { AND: andConditions } : {};
+  const where = { AND: andConditions };
 
   const orderBy = sortBy
     ? { [sortBy]: order as "asc" | "desc" }
@@ -61,8 +64,8 @@ export async function getEvents(query: EventQueryInput) {
 }
 
 export async function getEventById(id: string) {
-  const event = await prisma.event.findUnique({
-    where: { id },
+  const event = await prisma.event.findFirst({
+    where: { id, deletedAt: null },
     include: {
       createdBy: { select: { id: true, name: true, email: true } },
     },
@@ -84,11 +87,12 @@ export async function createEvent(data: CreateEventInput, createdById: string) {
       price: data.price,
       createdById,
     },
+    select: eventSelect,
   });
 }
 
 export async function updateEvent(id: string, data: UpdateEventInput) {
-  const event = await prisma.event.findUnique({ where: { id } });
+  const event = await prisma.event.findFirst({ where: { id, deletedAt: null } });
   if (!event) throw new HttpError(404, "Event not found");
 
   const updateData: {
@@ -122,11 +126,11 @@ export async function updateEvent(id: string, data: UpdateEventInput) {
     updateData.availableSeats = newAvailable;
   }
 
-  return prisma.event.update({ where: { id }, data: updateData });
+  return prisma.event.update({ where: { id }, data: updateData, select: eventSelect });
 }
 
-export async function deleteEvent(id: string) {
-  const event = await prisma.event.findUnique({ where: { id } });
+export async function softDeleteEvent(id: string) {
+  const event = await prisma.event.findFirst({ where: { id, deletedAt: null } });
   if (!event) throw new HttpError(404, "Event not found");
 
   const activeBookingsCount = await prisma.booking.count({
@@ -139,7 +143,27 @@ export async function deleteEvent(id: string) {
     );
   }
 
-  await prisma.event.delete({ where: { id } });
+  await prisma.event.update({ where: { id }, data: { deletedAt: new Date() } });
+}
+
+export async function updateEventImage(id: string, filename: string) {
+  const event = await prisma.event.findFirst({ where: { id, deletedAt: null } });
+  if (!event) throw new HttpError(404, "Event not found");
+
+  // Remove old image file from disk if present
+  if (event.imageUrl) {
+    const oldPath = path.join(process.cwd(), event.imageUrl);
+    if (fs.existsSync(oldPath)) {
+      fs.unlinkSync(oldPath);
+    }
+  }
+
+  const imageUrl = `/uploads/events/${filename}`;
+  return prisma.event.update({
+    where: { id },
+    data: { imageUrl },
+    select: eventSelect,
+  });
 }
 
 export async function getEventBookings(
@@ -147,7 +171,7 @@ export async function getEventBookings(
   page: number,
   limit: number
 ) {
-  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  const event = await prisma.event.findFirst({ where: { id: eventId, deletedAt: null } });
   if (!event) throw new HttpError(404, "Event not found");
 
   const [bookings, total] = await Promise.all([

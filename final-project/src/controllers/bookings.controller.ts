@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import * as bookingsService from "../services/bookings.service";
 import { bookingQuerySchema } from "../schemas/booking.schema";
+import { generateBookingQR } from "../utils/qrcode";
 
 export async function createBooking(
   req: Request,
@@ -8,7 +9,8 @@ export async function createBooking(
   next: NextFunction
 ): Promise<void> {
   try {
-    const booking = await bookingsService.createBooking(req.body, req.user!.userId);
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const booking = await bookingsService.createBooking(req.body, req.user!.userId, baseUrl);
     res.status(201).json(booking);
   } catch (err) {
     next(err);
@@ -70,6 +72,24 @@ export async function cancelBooking(
       req.user!.role
     );
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getBookingQR(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const data = await bookingsService.getBookingForQR(
+      req.params.id,
+      req.user!.userId,
+      req.user!.role
+    );
+    const qrBuffer = await generateBookingQR(data);
+    res.type("png").send(qrBuffer);
   } catch (err) {
     next(err);
   }

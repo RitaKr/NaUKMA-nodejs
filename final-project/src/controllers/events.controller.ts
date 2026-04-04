@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import * as eventsService from "../services/events.service";
 import { eventQuerySchema } from "../schemas/event.schema";
 import { bookingQuerySchema } from "../schemas/booking.schema";
+import { HttpError } from "../utils/errors";
 
 export async function getEvents(
   req: Request,
@@ -69,8 +70,24 @@ export async function deleteEvent(
   next: NextFunction
 ): Promise<void> {
   try {
-    await eventsService.deleteEvent(req.params.id);
+    await eventsService.softDeleteEvent(req.params.id);
     res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function uploadEventImage(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!req.file) {
+      throw new HttpError(400, "No image file provided");
+    }
+    const event = await eventsService.updateEventImage(req.params.id, req.file.filename);
+    res.json(event);
   } catch (err) {
     next(err);
   }

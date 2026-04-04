@@ -8,15 +8,17 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(uuid())
-  name         String
-  email        String    @unique
-  passwordHash String
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  passwordHash  String?
   /// "USER" | "ADMIN"
-  role         String    @default("USER")
-  createdAt    DateTime  @default(now())
-  bookings     Booking[]
-  events       Event[]   @relation("CreatedBy")
+  role          String    @default("USER")
+  oauthProvider String?
+  oauthId       String?
+  createdAt     DateTime  @default(now())
+  bookings      Booking[]
+  events        Event[]   @relation("CreatedBy")
 }
 
 model Event {
@@ -29,8 +31,10 @@ model Event {
   availableSeats Int
   category       String
   price          Float
+  imageUrl       String?
   createdById    String
   createdAt      DateTime  @default(now())
+  deletedAt      DateTime?
   createdBy      User      @relation("CreatedBy", fields: [createdById], references: [id])
   bookings       Booking[]
 }

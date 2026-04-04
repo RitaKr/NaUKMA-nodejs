@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Event Booking System API",
-    "description": "Full API collection for the Event Booking System. \n\n**Setup:**\n1. Import this collection into Postman.\n2. Create an environment with variable `baseUrl` = `http://localhost:2500`.\n3. Run **Auth / Login (Admin)** first — the collection auto-saves the token.\n4. Run other requests as needed.\n\n**Pre-seeded admin:** `admin@example.com` / `admin12345`",
+    "description": "Full API collection for the Event Booking System. \n\n**Setup:**\n1. Import this collection into Postman.\n2. Create an environment with variable `baseUrl` = `http://localhost:2500`.\n3. Run **Auth / Login (Admin)** first — the collection auto-saves the token.\n4. Run other requests as needed.\n\n**Pre-seeded admin:** `admin@example.com` / `admin12345`\n\n**Bonus features covered:**\n- `POST /events/:id/image` — multipart image upload (JPEG/PNG/WEBP, max 5 MB)\n- `DELETE /events/:id` — soft delete (sets `deletedAt`, record stays in DB)\n- `GET /bookings/:id/qr` — returns a PNG QR code for event entry\n- Booking creation triggers an async email confirmation (check server logs)\\n- `GET /auth/google` — Google OAuth (open in browser, returns JWT on callback)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -189,6 +189,35 @@
               "host": ["{{baseUrl}}"],
               "path": ["auth", "login"]
             }
+          },
+          "response": []
+        },
+        {
+          "name": "Google OAuth – Initiate (open in browser)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/google",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "google"]
+            },
+            "description": "Open this URL in a browser tab. Google will redirect to the consent screen, then to `/auth/google/callback` which returns `{ token, user }`. Copy the token into `adminToken` or `userToken` collection variable.\n\nRequires `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` set in the server `.env`."
+          },
+          "response": []
+        },
+        {
+          "name": "Google OAuth – Callback (auto-called by Google)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/google/callback?code=GOOGLE_CODE_HERE",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "google", "callback"],
+              "query": [{ "key": "code", "value": "GOOGLE_CODE_HERE" }]
+            },
+            "description": "This endpoint is called automatically by Google after consent. It returns `{ token, user }`. Do not call this manually — use the 'Initiate' request in a browser instead."
           },
           "response": []
         }
@@ -530,13 +559,115 @@
           "response": []
         },
         {
-          "name": "Delete Event (Admin)",
+          "name": "Upload Event Image (Admin)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status 204', () => pm.expect(pm.response.code).to.equal(204));"
+                  "pm.test('Status 200', () => pm.expect(pm.response.code).to.equal(200));",
+                  "pm.test('imageUrl returned', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.imageUrl).to.be.a('string');",
+                  "  pm.expect(body.imageUrl).to.include('/uploads/events/');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "",
+                  "description": "Select a JPEG / PNG / WEBP image (max 5 MB)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/image",
+              "host": ["{{baseUrl}}"],
+              "path": ["events", "{{eventId}}", "image"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Event Image – No File (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.expect(pm.response.code).to.equal(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": []
+            },
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/image",
+              "host": ["{{baseUrl}}"],
+              "path": ["events", "{{eventId}}", "image"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Event Image – Forbidden as User (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403', () => pm.expect(pm.response.code).to.equal(403));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/image",
+              "host": ["{{baseUrl}}"],
+              "path": ["events", "{{eventId}}", "image"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Soft Delete Event (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204 – deletedAt set, record kept in DB', () => pm.expect(pm.response.code).to.equal(204));"
                 ],
                 "type": "text/javascript"
               }
@@ -545,6 +676,29 @@
           "request": {
             "method": "DELETE",
             "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["events", "{{eventId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Soft-Deleted Event – Not Found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404 – soft-deleted event hidden from public API', () => pm.expect(pm.response.code).to.equal(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/events/{{eventId}}",
               "host": ["{{baseUrl}}"],
@@ -591,6 +745,7 @@
                   "    pm.expect(body.totalPrice).to.be.a('number');",
                   "    pm.expect(body.totalPrice).to.be.at.least(0);",
                   "  });",
+                  "  console.log('Email confirmation triggered – check server logs for SMTP activity');",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -710,6 +865,80 @@
               "raw": "{{baseUrl}}/bookings/{{bookingId}}",
               "host": ["{{baseUrl}}"],
               "path": ["bookings", "{{bookingId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Booking QR Code (PNG)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.expect(pm.response.code).to.equal(200));",
+                  "pm.test('Content-Type is PNG', () => {",
+                  "  pm.expect(pm.response.headers.get('content-type')).to.include('image/png');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/{{bookingId}}/qr",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "{{bookingId}}", "qr"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Booking QR Code – No Auth (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.expect(pm.response.code).to.equal(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/bookings/{{bookingId}}/qr",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "{{bookingId}}", "qr"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Booking QR Code – Not Found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.expect(pm.response.code).to.equal(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/nonexistent-id/qr",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "nonexistent-id", "qr"]
             }
           },
           "response": []

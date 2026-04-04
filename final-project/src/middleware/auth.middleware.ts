@@ -1,11 +1,14 @@
 import { Request, Response, NextFunction } from "express";
-import { verifyToken, JwtPayload } from "../utils/jwt";
+import { verifyToken } from "../utils/jwt";
 import { HttpError } from "../utils/errors";
 
+// Augment Express.User (used by @types/passport) so req.user carries our JWT fields
 declare global {
   namespace Express {
-    interface Request {
-      user?: JwtPayload;
+    interface User {
+      userId: string;
+      email: string;
+      role: string;
     }
   }
 }

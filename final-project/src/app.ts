@@ -1,5 +1,8 @@
 import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
+import path from "path";
+import fs from "fs";
+import passport from "./config/passport";
 import authRouter from "./routes/auth.routes";
 import usersRouter from "./routes/users.routes";
 import eventsRouter from "./routes/events.routes";
@@ -7,9 +10,19 @@ import bookingsRouter from "./routes/bookings.routes";
 import statsRouter from "./routes/stats.routes";
 import { HttpError } from "./utils/errors";
 
+// Ensure upload directories exist
+const eventsUploadDir = path.join(process.cwd(), "uploads", "events");
+if (!fs.existsSync(eventsUploadDir)) {
+  fs.mkdirSync(eventsUploadDir, { recursive: true });
+}
+
 const app = express();
 
 app.use(express.json());
+app.use(passport.initialize());
+
+// Serve uploaded files (event images etc.)
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Health check
 app.get("/health", (_req: Request, res: Response) => {
