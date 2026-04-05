@@ -1,21 +1,23 @@
 import QRCode from "qrcode";
 
-export interface BookingQRData {
+export interface TicketQRData {
+  ticketId: string;
   bookingId: string;
   eventId: string;
   eventTitle: string;
-  userId: string;
-  quantity: number;
+  ticketCategory: string;
+  date: string;
+  country: string;
+  city: string;
+  arena: string;
   status: string;
-  bookedAt: string;
 }
 
-export async function generateBookingQR(data: BookingQRData): Promise<Buffer> {
-  const payload = JSON.stringify(data);
-  return QRCode.toBuffer(payload, {
+export async function generateTicketQR(data: TicketQRData): Promise<Buffer> {
+  return QRCode.toBuffer(JSON.stringify(data), {
     type: "png",
-    width: 300,
-    margin: 2,
+    width: 200,
+    margin: 1,
     errorCorrectionLevel: "M",
   });
 }

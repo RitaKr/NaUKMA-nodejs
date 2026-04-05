@@ -15,10 +15,10 @@ export async function getEventStats() {
           id: true,
           title: true,
           date: true,
-          location: true,
+          country: true,
+          city: true,
+          arena: true,
           category: true,
-          capacity: true,
-          availableSeats: true,
           _count: { select: { bookings: true } },
         },
       }),
@@ -32,17 +32,14 @@ export async function getEventStats() {
       id: e.id,
       title: e.title,
       date: e.date,
-      location: e.location,
       category: e.category,
-      capacity: e.capacity,
-      availableSeats: e.availableSeats,
       totalBookings: e._count.bookings,
     })),
   };
 }
 
 export async function getBookingStats() {
-  const [totalBookings, activeBookings, cancelledBookings, revenueAgg, seatsAgg] =
+  const [totalBookings, activeBookings, cancelledBookings, revenueAgg, ticketCount] =
     await Promise.all([
       prisma.booking.count(),
       prisma.booking.count({ where: { status: "ACTIVE" } }),
@@ -51,10 +48,7 @@ export async function getBookingStats() {
         where: { status: "ACTIVE" },
         _sum: { totalPrice: true },
       }),
-      prisma.booking.aggregate({
-        where: { status: "ACTIVE" },
-        _sum: { quantity: true },
-      }),
+      prisma.ticket.count({ where: { booking: { status: "ACTIVE" } } }),
     ]);
 
   return {
@@ -62,6 +56,6 @@ export async function getBookingStats() {
     activeBookings,
     cancelledBookings,
     totalRevenue: revenueAgg._sum.totalPrice ?? 0,
-    totalSeatsSold: seatsAgg._sum.quantity ?? 0,
+    totalTicketsSold: ticketCount,
   };
 }

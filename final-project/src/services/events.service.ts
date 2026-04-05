@@ -8,29 +8,24 @@ import {
     EventQueryInput,
 } from "../schemas/event.schema";
 
-const eventSelect = {
-  id: true,
-  title: true,
-  description: true,
-  date: true,
-  location: true,
-  capacity: true,
-  availableSeats: true,
-  category: true,
-  price: true,
-  imageUrl: true,
-  createdById: true,
-  createdAt: true,
+const eventInclude = {
+  ticketCategories: {
+    select: { id: true, name: true, price: true, totalSeats: true, availableSeats: true },
+  },
+  lineup: {
+    select: { id: true, name: true, role: true },
+  },
 } as const;
 
 export async function getEvents(query: EventQueryInput) {
-  const { category, location, date, minPrice, maxPrice, sortBy, order, page, limit } =
-    query;
+  const { category, country, city, arena, date, sortBy, order, page, limit } = query;
 
   const andConditions: object[] = [{ deletedAt: null }];
 
   if (category) andConditions.push({ category: { contains: category } });
-  if (location) andConditions.push({ location: { contains: location } });
+  if (country) andConditions.push({ country: { contains: country } });
+  if (city) andConditions.push({ city: { contains: city } });
+  if (arena) andConditions.push({ arena: { contains: arena } });
 
   if (date) {
     const dayStart = new Date(date);
@@ -40,14 +35,8 @@ export async function getEvents(query: EventQueryInput) {
     andConditions.push({ date: { gte: dayStart, lte: dayEnd } });
   }
 
-  if (minPrice !== undefined) andConditions.push({ price: { gte: minPrice } });
-  if (maxPrice !== undefined) andConditions.push({ price: { lte: maxPrice } });
-
   const where = { AND: andConditions };
-
-  const orderBy = sortBy
-    ? { [sortBy]: order as "asc" | "desc" }
-    : { date: "asc" as const };
+  const orderBy = sortBy ? { [sortBy]: order as "asc" | "desc" } : { date: "asc" as const };
 
   const [events, total] = await Promise.all([
     prisma.event.findMany({
@@ -55,7 +44,7 @@ export async function getEvents(query: EventQueryInput) {
       orderBy,
       skip: (page - 1) * limit,
       take: limit,
-      select: eventSelect,
+      include: eventInclude,
     }),
     prisma.event.count({ where }),
   ]);
@@ -67,6 +56,7 @@ export async function getEventById(id: string) {
   const event = await prisma.event.findFirst({
     where: { id, deletedAt: null },
     include: {
+      ...eventInclude,
       createdBy: { select: { id: true, name: true, email: true } },
     },
   });
@@ -80,14 +70,26 @@ export async function createEvent(data: CreateEventInput, createdById: string) {
       title: data.title,
       description: data.description,
       date: new Date(data.date),
-      location: data.location,
-      capacity: data.capacity,
-      availableSeats: data.capacity,
+      country: data.country,
+      city: data.city,
+      arena: data.arena,
+      address: data.address,
+      maxTicketsPerPerson: data.maxTicketsPerPerson,
       category: data.category,
-      price: data.price,
       createdById,
+      ticketCategories: {
+        create: data.ticketCategories.map((tc) => ({
+          name: tc.name,
+          price: tc.price,
+          totalSeats: tc.totalSeats,
+          availableSeats: tc.totalSeats,
+        })),
+      },
+      lineup: {
+        create: data.lineup.map((l) => ({ name: l.name, role: l.role })),
+      },
     },
-    select: eventSelect,
+    include: eventInclude,
   });
 }
 
@@ -99,34 +101,39 @@ export async function updateEvent(id: string, data: UpdateEventInput) {
     title?: string;
     description?: string;
     date?: Date;
-    location?: string;
+    country?: string;
+    city?: string;
+    arena?: string;
+    address?: string;
+    maxTicketsPerPerson?: number;
     category?: string;
-    price?: number;
-    capacity?: number;
-    availableSeats?: number;
   } = {};
 
   if (data.title !== undefined) updateData.title = data.title;
   if (data.description !== undefined) updateData.description = data.description;
   if (data.date !== undefined) updateData.date = new Date(data.date);
-  if (data.location !== undefined) updateData.location = data.location;
+  if (data.country !== undefined) updateData.country = data.country;
+  if (data.city !== undefined) updateData.city = data.city;
+  if (data.arena !== undefined) updateData.arena = data.arena;
+  if (data.address !== undefined) updateData.address = data.address;
+  if (data.maxTicketsPerPerson !== undefined) updateData.maxTicketsPerPerson = data.maxTicketsPerPerson;
   if (data.category !== undefined) updateData.category = data.category;
-  if (data.price !== undefined) updateData.price = data.price;
 
-  if (data.capacity !== undefined) {
-    const bookedSeats = event.capacity - event.availableSeats;
-    const newAvailable = data.capacity - bookedSeats;
-    if (newAvailable < 0) {
-      throw new HttpError(
-        400,
-        `New capacity (${data.capacity}) is less than already booked seats (${bookedSeats})`
-      );
-    }
-    updateData.capacity = data.capacity;
-    updateData.availableSeats = newAvailable;
-  }
+  // Replace lineup if provided
+  const lineupUpdate = data.lineup !== undefined
+    ? {
+        lineup: {
+          deleteMany: {},
+          create: data.lineup.map((l) => ({ name: l.name, role: l.role })),
+        },
+      }
+    : {};
 
-  return prisma.event.update({ where: { id }, data: updateData, select: eventSelect });
+  return prisma.event.update({
+    where: { id },
+    data: { ...updateData, ...lineupUpdate },
+    include: eventInclude,
+  });
 }
 
 export async function softDeleteEvent(id: string) {
@@ -150,27 +157,20 @@ export async function updateEventImage(id: string, filename: string) {
   const event = await prisma.event.findFirst({ where: { id, deletedAt: null } });
   if (!event) throw new HttpError(404, "Event not found");
 
-  // Remove old image file from disk if present
   if (event.imageUrl) {
     const oldPath = path.join(process.cwd(), event.imageUrl);
-    if (fs.existsSync(oldPath)) {
-      fs.unlinkSync(oldPath);
-    }
+    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
   }
 
   const imageUrl = `/uploads/events/${filename}`;
   return prisma.event.update({
     where: { id },
     data: { imageUrl },
-    select: eventSelect,
+    include: eventInclude,
   });
 }
 
-export async function getEventBookings(
-  eventId: string,
-  page: number,
-  limit: number
-) {
+export async function getEventBookings(eventId: string, page: number, limit: number) {
   const event = await prisma.event.findFirst({ where: { id: eventId, deletedAt: null } });
   if (!event) throw new HttpError(404, "Event not found");
 
@@ -179,6 +179,7 @@ export async function getEventBookings(
       where: { eventId },
       include: {
         user: { select: { id: true, name: true, email: true } },
+        tickets: { include: { ticketCategory: { select: { id: true, name: true, price: true } } } },
       },
       skip: (page - 1) * limit,
       take: limit,

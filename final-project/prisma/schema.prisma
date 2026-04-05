@@ -22,28 +22,49 @@ model User {
 }
 
 model Event {
-  id             String    @id @default(uuid())
-  title          String
-  description    String
-  date           DateTime
-  location       String
-  capacity       Int
-  availableSeats Int
-  category       String
+  id                  String           @id @default(uuid())
+  title               String
+  description         String
+  date                DateTime
+  country             String
+  city                String
+  arena               String
+  address             String
+  maxTicketsPerPerson Int              @default(10)
+  category            String
+  imageUrl            String?
+  createdById         String
+  createdAt           DateTime         @default(now())
+  deletedAt           DateTime?
+  createdBy           User             @relation("CreatedBy", fields: [createdById], references: [id])
+  bookings            Booking[]
+  ticketCategories    TicketCategory[]
+  lineup              LineupEntry[]
+}
+
+model TicketCategory {
+  id             String   @id @default(uuid())
+  eventId        String
+  name           String
   price          Float
-  imageUrl       String?
-  createdById    String
-  createdAt      DateTime  @default(now())
-  deletedAt      DateTime?
-  createdBy      User      @relation("CreatedBy", fields: [createdById], references: [id])
-  bookings       Booking[]
+  totalSeats     Int
+  availableSeats Int
+  event          Event    @relation(fields: [eventId], references: [id])
+  tickets        Ticket[]
+}
+
+model LineupEntry {
+  id      String @id @default(uuid())
+  eventId String
+  name    String
+  role    String
+  event   Event  @relation(fields: [eventId], references: [id])
 }
 
 model Booking {
   id          String    @id @default(uuid())
   userId      String
   eventId     String
-  quantity    Int
   totalPrice  Float
   /// "ACTIVE" | "CANCELLED"
   status      String    @default("ACTIVE")
@@ -51,4 +72,13 @@ model Booking {
   cancelledAt DateTime?
   user        User      @relation(fields: [userId], references: [id])
   event       Event     @relation(fields: [eventId], references: [id])
+  tickets     Ticket[]
+}
+
+model Ticket {
+  id               String         @id @default(uuid())
+  bookingId        String
+  ticketCategoryId String
+  booking          Booking        @relation(fields: [bookingId], references: [id])
+  ticketCategory   TicketCategory @relation(fields: [ticketCategoryId], references: [id])
 }

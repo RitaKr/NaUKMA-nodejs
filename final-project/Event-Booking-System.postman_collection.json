@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Event Booking System API",
-    "description": "Full API collection for the Event Booking System. \n\n**Setup:**\n1. Import this collection into Postman.\n2. Create an environment with variable `baseUrl` = `http://localhost:2500`.\n3. Run **Auth / Login (Admin)** first — the collection auto-saves the token.\n4. Run other requests as needed.\n\n**Pre-seeded admin:** `admin@example.com` / `admin12345`\n\n**Bonus features covered:**\n- `POST /events/:id/image` — multipart image upload (JPEG/PNG/WEBP, max 5 MB)\n- `DELETE /events/:id` — soft delete (sets `deletedAt`, record stays in DB)\n- `GET /bookings/:id/qr` — returns a PNG QR code for event entry\n- Booking creation triggers an async email confirmation (check server logs)\\n- `GET /auth/google` — Google OAuth (open in browser, returns JWT on callback)",
+    "description": "Full API collection for the Event Booking System. \n\n**Setup:**\n1. Import this collection into Postman.\n2. Create an environment with variable `baseUrl` = `http://localhost:2500`.\n3. Run **Auth / Login (Admin)** first — the collection auto-saves the token.\n4. Run **Events / Create Event (Admin)** — saves `eventId` and `ticketCategoryId`.\n5. Run **Bookings / Create Booking** — saves `bookingId`.\n\n**Pre-seeded admin:** `admin@example.com` / `admin12345`\n\n**Features covered:**\n- Events have `country`, `city`, `arena`, `address` location fields; filterable by any\n- `ticketCategories` array (name, price, totalSeats) replaces single price/capacity\n- `lineup` array (name, role) for artists/speakers/hosts\n- `maxTicketsPerPerson` per-event limit\n- `POST /events/:id/image` — multipart image upload (JPEG/PNG/WEBP, max 5 MB)\n- `DELETE /events/:id` — soft delete\n- `GET /bookings/:id/pdf` — PDF ticket with per-ticket QR codes (also emailed)\n- Booking creates individual Ticket records, one QR per ticket in the PDF\n- `GET /auth/google` — Google OAuth (open in browser, returns JWT)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -27,6 +27,11 @@
     },
     {
       "key": "bookingId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ticketCategoryId",
       "value": "",
       "type": "string"
     },
@@ -365,14 +370,27 @@
           "response": []
         },
         {
-          "name": "List Events – Filter by Location",
+          "name": "List Events – Filter by City",
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/events?location=Kyiv",
+              "raw": "{{baseUrl}}/events?city=Kyiv",
               "host": ["{{baseUrl}}"],
               "path": ["events"],
-              "query": [{ "key": "location", "value": "Kyiv" }]
+              "query": [{ "key": "city", "value": "Kyiv" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Events – Filter by Country",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/events?country=Ukraine",
+              "host": ["{{baseUrl}}"],
+              "path": ["events"],
+              "query": [{ "key": "country", "value": "Ukraine" }]
             }
           },
           "response": []
@@ -391,16 +409,29 @@
           "response": []
         },
         {
-          "name": "List Events – Filter by Price Range",
+          "name": "List Events – Filter by Arena",
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/events?minPrice=100&maxPrice=600",
+              "raw": "{{baseUrl}}/events?arena=Kyiv%20Hub",
+              "host": ["{{baseUrl}}"],
+              "path": ["events"],
+              "query": [{ "key": "arena", "value": "Kyiv Hub" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Events – Filter by Category + City",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/events?category=meetup&city=Kyiv",
               "host": ["{{baseUrl}}"],
               "path": ["events"],
               "query": [
-                { "key": "minPrice", "value": "100" },
-                { "key": "maxPrice", "value": "600" }
+                { "key": "category", "value": "meetup" },
+                { "key": "city", "value": "Kyiv" }
               ]
             }
           },
@@ -473,7 +504,8 @@
                   "  const body = pm.response.json();",
                   "  pm.collectionVariables.set('eventId', body.id);",
                   "  pm.test('Created 201', () => pm.expect(pm.response.code).to.equal(201));",
-                  "  pm.test('availableSeats equals capacity', () => pm.expect(body.availableSeats).to.equal(body.capacity));",
+                  "  pm.test('Has ticket categories', () => pm.expect(body.ticketCategories).to.be.an('array').with.length.above(0));",
+                  "  pm.collectionVariables.set('ticketCategoryId', body.ticketCategories[0].id);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -488,7 +520,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Frontend Meetup Kyiv\",\n  \"description\": \"A meetup for frontend developers in Kyiv to share knowledge.\",\n  \"date\": \"2026-07-15T18:00:00.000Z\",\n  \"location\": \"Kyiv\",\n  \"capacity\": 80,\n  \"category\": \"meetup\",\n  \"price\": 0\n}"
+              "raw": "{\n  \"title\": \"Frontend Meetup Kyiv\",\n  \"description\": \"A meetup for frontend developers in Kyiv to share knowledge.\",\n  \"date\": \"2026-07-15T18:00:00.000Z\",\n  \"country\": \"Ukraine\",\n  \"city\": \"Kyiv\",\n  \"arena\": \"Kyiv Hub\",\n  \"address\": \"123 Main Street, Kyiv\",\n  \"maxTicketsPerPerson\": 10,\n  \"category\": \"meetup\",\n  \"ticketCategories\": [\n    { \"name\": \"General\", \"price\": 0, \"totalSeats\": 80 },\n    { \"name\": \"VIP\", \"price\": 50, \"totalSeats\": 20 }\n  ],\n  \"lineup\": [\n    { \"name\": \"Jane Smith\", \"role\": \"Speaker\" },\n    { \"name\": \"John Doe\", \"role\": \"Host\" }\n  ]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/events",
@@ -508,7 +540,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Unauthorized Event\",\n  \"description\": \"Should not be created.\",\n  \"date\": \"2026-07-20T18:00:00.000Z\",\n  \"location\": \"Kyiv\",\n  \"capacity\": 10,\n  \"category\": \"other\",\n  \"price\": 100\n}"
+              "raw": "{\n  \"title\": \"Unauthorized Event\",\n  \"description\": \"Should not be created.\",\n  \"date\": \"2026-07-20T18:00:00.000Z\",\n  \"country\": \"Ukraine\",\n  \"city\": \"Kyiv\",\n  \"arena\": \"Kyiv Hub\",\n  \"address\": \"123 Main Street, Kyiv\",\n  \"category\": \"other\",\n  \"ticketCategories\": [{ \"name\": \"General\", \"price\": 100, \"totalSeats\": 10 }]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/events",
@@ -528,7 +560,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Past Event\",\n  \"description\": \"This event is in the past and should fail.\",\n  \"date\": \"2020-01-01T18:00:00.000Z\",\n  \"location\": \"Kyiv\",\n  \"capacity\": 50,\n  \"category\": \"concert\",\n  \"price\": 200\n}"
+              "raw": "{\n  \"title\": \"Past Event\",\n  \"description\": \"This event is in the past and should fail.\",\n  \"date\": \"2020-01-01T18:00:00.000Z\",\n  \"country\": \"Ukraine\",\n  \"city\": \"Kyiv\",\n  \"arena\": \"Test Arena\",\n  \"address\": \"1 Old St, Kyiv\",\n  \"category\": \"concert\",\n  \"ticketCategories\": [{ \"name\": \"General\", \"price\": 200, \"totalSeats\": 50 }]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/events",
@@ -548,7 +580,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Frontend Meetup Kyiv – Updated\",\n  \"price\": 50\n}"
+              "raw": "{\n  \"title\": \"Frontend Meetup Kyiv – Updated\",\n  \"arena\": \"Kyiv Conference Center\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/events/{{eventId}}",
@@ -760,7 +792,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"quantity\": 2\n}"
+              "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"tickets\": [\n    { \"ticketCategoryId\": \"{{ticketCategoryId}}\", \"quantity\": 2 }\n  ]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/bookings",
@@ -771,7 +803,7 @@
           "response": []
         },
         {
-          "name": "Create Booking – Validation Error (quantity 0)",
+          "name": "Create Booking – Validation Error (empty tickets)",
           "request": {
             "method": "POST",
             "header": [
@@ -780,7 +812,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"quantity\": 0\n}"
+              "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"tickets\": []\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/bookings",
@@ -797,7 +829,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"quantity\": 1\n}"
+              "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"tickets\": [{ \"ticketCategoryId\": \"{{ticketCategoryId}}\", \"quantity\": 1 }]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/bookings",
@@ -865,80 +897,6 @@
               "raw": "{{baseUrl}}/bookings/{{bookingId}}",
               "host": ["{{baseUrl}}"],
               "path": ["bookings", "{{bookingId}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Booking QR Code (PNG)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 200', () => pm.expect(pm.response.code).to.equal(200));",
-                  "pm.test('Content-Type is PNG', () => {",
-                  "  pm.expect(pm.response.headers.get('content-type')).to.include('image/png');",
-                  "});"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
-            "url": {
-              "raw": "{{baseUrl}}/bookings/{{bookingId}}/qr",
-              "host": ["{{baseUrl}}"],
-              "path": ["bookings", "{{bookingId}}", "qr"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Booking QR Code – No Auth (401)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 401', () => pm.expect(pm.response.code).to.equal(401));"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/bookings/{{bookingId}}/qr",
-              "host": ["{{baseUrl}}"],
-              "path": ["bookings", "{{bookingId}}", "qr"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Booking QR Code – Not Found (404)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 404', () => pm.expect(pm.response.code).to.equal(404));"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
-            "url": {
-              "raw": "{{baseUrl}}/bookings/nonexistent-id/qr",
-              "host": ["{{baseUrl}}"],
-              "path": ["bookings", "nonexistent-id", "qr"]
             }
           },
           "response": []

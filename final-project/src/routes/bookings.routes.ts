@@ -4,7 +4,7 @@ import {
     getBookings,
     getBookingById,
     cancelBooking,
-    getBookingQR,
+    getBookingPdf,
 } from "../controllers/bookings.controller";
 import { authenticate } from "../middleware/auth.middleware";
 import { validate } from "../middleware/validate";
@@ -21,8 +21,8 @@ router.get("/", authenticate, getBookings);
 // GET /bookings/:id - authenticated
 router.get("/:id", authenticate, getBookingById);
 
-// GET /bookings/:id/qr - authenticated, returns QR code PNG
-router.get("/:id/qr", authenticate, getBookingQR);
+// GET /bookings/:id/pdf - authenticated, returns PDF ticket
+router.get("/:id/pdf", authenticate, getBookingPdf);
 
 // POST /bookings/:id/cancel - authenticated
 router.post("/:id/cancel", authenticate, cancelBooking);

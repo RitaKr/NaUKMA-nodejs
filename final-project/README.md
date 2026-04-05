@@ -37,13 +37,13 @@ npm run db:seed
 npm run dev
 ```
 
-The server runs on `http://localhost:3000` by default.
+The server runs on `http://localhost:2500` by default.
 
 ### Environment Variables
 
 | Variable       | Description              | Example                   |
 |----------------|--------------------------|---------------------------|
-| `PORT`         | Server port              | `3000`                    |
+| `PORT`         | Server port              | `2500`                    |
 | `DATABASE_URL` | SQLite file path         | `file:./dev.db`           |
 | `JWT_SECRET`   | JWT signing secret       | `supersecretkey`          |
 

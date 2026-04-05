@@ -2,10 +2,17 @@ import { z } from "zod";
 
 export const createBookingSchema = z.object({
   eventId: z.string().min(1, "Event ID is required"),
-  quantity: z
-    .number({ invalid_type_error: "Quantity must be a number" })
-    .int("Quantity must be an integer")
-    .min(1, "Quantity must be at least 1"),
+  tickets: z
+    .array(
+      z.object({
+        ticketCategoryId: z.string().min(1, "Ticket category ID is required"),
+        quantity: z
+          .number({ invalid_type_error: "Quantity must be a number" })
+          .int()
+          .min(1, "Quantity must be at least 1"),
+      })
+    )
+    .min(1, "At least one ticket must be requested"),
 });
 
 export const bookingQuerySchema = z.object({

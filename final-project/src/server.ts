@@ -1,7 +1,7 @@
 import app from "./app";
 import { prisma } from "./db/client";
 
-const PORT = parseInt(process.env.PORT || "3000", 10);
+const PORT = parseInt(process.env.PORT || "2500", 10);
 
 async function main() {
   await prisma.$connect();
