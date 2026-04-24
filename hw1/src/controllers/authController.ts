@@ -28,3 +28,29 @@ export const login = async (
     next(error);
   }
 };
+
+export const requestPasswordReset = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    await service.requestPasswordReset(req.body.email);
+    res.json({ message: "If the provided email is registered, you will receive an email with instructions." });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    await service.resetPassword(req.body.token, req.body.password);
+    res.json({ message: "Password has been successfully changed." });
+  } catch (error) {
+    next(error);
+  }
+};

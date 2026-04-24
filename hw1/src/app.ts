@@ -1,5 +1,7 @@
 import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
+import path from "path";
+import fs from "fs";
 import booksRouter from "./routes/books";
 import usersRouter from "./routes/users";
 import loansRouter from "./routes/loans";
@@ -7,10 +9,17 @@ import authRouter from "./routes/auth";
 import passport from "./config/passport";
 import { HttpError } from "./services/errors";
 
+const uploadsDir = path.join(process.cwd(), "uploads", "avatars");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 const app = express();
 
 app.use(express.json());
 app.use(passport.initialize());
+
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.get("/health", (req: Request, res: Response) => {
   res.json({ status: "ok" });
