@@ -10,7 +10,11 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "db:seed": "ts-node src/db/seed.ts"
+    "db:seed": "ts-node src/db/seed.ts",
+    "db:migrate:prod": "prisma migrate deploy",
+    "db:generate:sqlite": "prisma generate --schema=prisma/schema.sqlite.prisma",
+    "db:push:sqlite": "prisma db push --schema=prisma/schema.sqlite.prisma",
+    "studio:sqlite": "prisma studio --schema=prisma/schema.sqlite.prisma"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
